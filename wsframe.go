@@ -261,6 +261,7 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var tpl bytes.Buffer
 	var data interface{}
 	var controllers []string
+	var table, key, template, ctrls string
 
 	path := string(msg.Payload)
 	for route, details := range wfa.Routes {
@@ -269,36 +270,32 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 			continue
 		}
 		if c.Cookie["privilege"] == "admin" && (details.Admin.Template != "" || details.Admin.Controllers != "") {
-			if details.Admin.Key != "" && details.Admin.Table != "" {
-				data = wfa.GetRow(details.Admin.Table, details.Admin.Key)
-			} else if details.Admin.Table != "" {
-				data = wfa.GetRows(details.Admin.Table)
-			}
-			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Admin.Template, data); err != nil {
-				log.Println(err)
-			}
-			controllers = strings.Split(details.Admin.Controllers, ",")
+			table = details.Admin.Table
+			key = details.Admin.Key
+			template = details.Admin.Template
+			ctrls = details.Admin.Controllers
 		} else if c.Cookie["privilege"] != "" && details.Authorized.Privilege != "" && strings.Contains(details.Authorized.Privilege, c.Cookie["privilege"]) {
-			if details.Authorized.Key != "" && details.Authorized.Table != "" {
-				data = wfa.GetRow(details.Authorized.Table, details.Authorized.Key)
-			} else if details.Authorized.Table != "" {
-				data = wfa.GetRows(details.Authorized.Table)
-			}
-			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Authorized.Template, data); err != nil {
-				log.Println(err)
-			}
-			controllers = strings.Split(details.Authorized.Controllers, ",")
+			table = details.Authorized.Table
+			key = details.Authorized.Key
+			template = details.Authorized.Template
+			ctrls = details.Authorized.Controllers
 		} else {
-			if details.Key != "" && details.Table != "" {
-				data = wfa.GetRow(details.Table, details.Key)
-			} else if details.Table != "" {
-				data = wfa.GetRows(details.Table)
-			}
-			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Template, data); err != nil {
-				log.Println(err)
-			}
-			controllers = strings.Split(details.Controllers, ",")
+			table = details.Table
+			key = details.Key
+			template = details.Template
+			ctrls = details.Controllers
 		}
+		if key != "" {
+			if table != "" {
+				data = wfa.GetRow(table, key)
+			} else {
+				data = wfa.GetRows(table)
+			}
+		}
+		if err := wfa.Templates.ExecuteTemplate(&tpl, template, data); err != nil {
+			log.Println(err)
+		}
+		controllers = strings.Split(ctrls, ",")
 		resp := struct {
 			Template    string   `json:"template"`
 			Controllers []string `json:"controllers"`
