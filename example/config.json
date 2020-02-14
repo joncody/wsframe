@@ -1,0 +1,17 @@
+{
+    "name": "test",
+    "hashkey": "test-a-secret",
+    "blockkey": "test-a-very-secret",
+    "port": "9001",
+    "database": {
+        "user": "myuser",
+        "password": "mypassword",
+        "name": "mydatabase"
+    },
+    "routes": {
+        "/auth": {
+            "template": "auth",
+            "controllers": "auth"
+        }
+    }
+}
