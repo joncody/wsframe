@@ -37,6 +37,19 @@ type App struct {
 	} `json:"database"`
 	Driver *sql.DB
 	Routes map[string]struct {
+		Admin struct {
+			Table       string `json:"table"`
+			Key         string `json:"key"`
+			Template    string `json:"template"`
+			Controllers string `json:"controllers"`
+		} `json:"admin"`
+		Authorized struct {
+			Privilege   string `json:"privilege"`
+			Table       string `json:"table"`
+			Key         string `json:"key"`
+			Template    string `json:"template"`
+			Controllers string `json:"controllers"`
+		} `json:"authorized"`
 		Table       string `json:"table"`
 		Key         string `json:"key"`
 		Template    string `json:"template"`
@@ -118,6 +131,7 @@ func (wfa *App) SetCookie(w http.ResponseWriter, r *http.Request, value map[stri
 	cookie := &http.Cookie{
 		Name:     wfa.Name,
 		Value:    encoded,
+		Domain:   "localhost",
 		Path:     "/",
 		HttpOnly: true,
 	}
@@ -246,6 +260,7 @@ func (wfa *App) InsertRow(table, key, value string) error {
 func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var tpl bytes.Buffer
 	var data interface{}
+	var controllers []string
 
 	path := string(msg.Payload)
 	for route, details := range wfa.Routes {
@@ -253,20 +268,43 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 		if pattern.MatchString(path) == false {
 			continue
 		}
-		if details.Key != "" && details.Table != "" {
-			data = wfa.GetRow(details.Table, details.Key)
-		} else if details.Table != "" {
-			data = wfa.GetRows(details.Table)
-		}
-		if err := wfa.Templates.ExecuteTemplate(&tpl, details.Template, data); err != nil {
-			log.Println(err)
+		if c.Cookie["privilege"] == "admin" && (details.Admin.Template != "" || details.Admin.Controllers != "") {
+			if details.Admin.Key != "" && details.Admin.Table != "" {
+				data = wfa.GetRow(details.Admin.Table, details.Admin.Key)
+			} else if details.Admin.Table != "" {
+				data = wfa.GetRows(details.Admin.Table)
+			}
+			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Admin.Template, data); err != nil {
+				log.Println(err)
+			}
+			controllers = strings.Split(details.Admin.Controllers, ",")
+		} else if c.Cookie["privilege"] != "" && details.Authorized.Privilege != "" && strings.Contains(details.Authorized.Privilege, c.Cookie["privilege"]) {
+			if details.Authorized.Key != "" && details.Authorized.Table != "" {
+				data = wfa.GetRow(details.Authorized.Table, details.Authorized.Key)
+			} else if details.Authorized.Table != "" {
+				data = wfa.GetRows(details.Authorized.Table)
+			}
+			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Authorized.Template, data); err != nil {
+				log.Println(err)
+			}
+			controllers = strings.Split(details.Authorized.Controllers, ",")
+		} else {
+			if details.Key != "" && details.Table != "" {
+				data = wfa.GetRow(details.Table, details.Key)
+			} else if details.Table != "" {
+				data = wfa.GetRows(details.Table)
+			}
+			if err := wfa.Templates.ExecuteTemplate(&tpl, details.Template, data); err != nil {
+				log.Println(err)
+			}
+			controllers = strings.Split(details.Controllers, ",")
 		}
 		resp := struct {
 			Template    string   `json:"template"`
 			Controllers []string `json:"controllers"`
 		}{
 			Template:    tpl.String(),
-			Controllers: strings.Split(details.Controllers, ","),
+			Controllers: controllers,
 		}
 		payload, err := json.Marshal(&resp)
 		if err != nil {
@@ -331,7 +369,7 @@ func NewApp(cj string) *App {
 		SecureCookie: nil,
 		Templates:    template.Must(template.New("").Funcs(TemplateFuncs).ParseGlob("./static/views/*")),
 		HashKey:      "very-secret",
-		BlockKey:     "a-lot-secret",
+		BlockKey:     "a-lotvery-secret",
 		Port:         "8080",
 		SSLPort:      "0",
 		Database: struct {
@@ -345,6 +383,19 @@ func NewApp(cj string) *App {
 		},
 		Driver: nil,
 		Routes: map[string]struct {
+			Admin struct {
+				Table       string `json:"table"`
+				Key         string `json:"key"`
+				Template    string `json:"template"`
+				Controllers string `json:"controllers"`
+			} `json:"admin"`
+			Authorized struct {
+				Privilege   string `json:"privilege"`
+				Table       string `json:"table"`
+				Key         string `json:"key"`
+				Template    string `json:"template"`
+				Controllers string `json:"controllers"`
+			} `json:"authorized"`
 			Table       string `json:"table"`
 			Key         string `json:"key"`
 			Template    string `json:"template"`

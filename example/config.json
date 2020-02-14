@@ -1,7 +1,7 @@
 {
     "name": "test",
     "hashkey": "test-a-secret",
-    "blockkey": "test-a-very-secret",
+    "blockkey": "test-alot-secret",
     "port": "9001",
     "database": {
         "user": "myuser",
@@ -9,7 +9,16 @@
         "name": "mydatabase"
     },
     "routes": {
-        "/auth": {
+        "/": {
+            "admin": {
+                "template": "index",
+                "controllers": "admin"
+            },
+            "authorized": {
+                "privilege": "user",
+                "template": "index",
+                "controllers": "index"
+            },
             "template": "auth",
             "controllers": "auth"
         }

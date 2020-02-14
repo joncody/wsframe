@@ -2276,6 +2276,7 @@ var wsframe = (function (global) {
         hashmatch: /^#*(.*)$/,
         hash: "/",
         hrefs: gg("[data-href]"),
+        retries: 0,
         socket: null
     };
 
@@ -2302,6 +2303,7 @@ var wsframe = (function (global) {
     }
 
     function onopen() {
+        app.retries = 0;
         app.hash = app.hashmatch.exec(global.location.hash)[1];
         if (!app.hash) {
             global.location.hash = "/";
@@ -2330,11 +2332,16 @@ var wsframe = (function (global) {
         app.socket = wsrooms((global.location.protocol === "https:" ? "wss:" : "ws:") + "//" + global.location.host + "/ws");
         app.socket.on("open", onopen);
         app.socket.on("close", function () {
-            global.setTimeout(init, 1000);
+            if (app.retries < 10) {
+                global.setTimeout(init, 3000);
+            }
+            app.retries += 1;
         });
         app.socket.on("error", function (err) {
             console.log(err);
-            global.setTimeout(init, 1000);
+            if (app.retries < 10) {
+                global.setTimeout(init, 3000);
+            }
         });
         app.socket.on("response", onresponse);
     }());
