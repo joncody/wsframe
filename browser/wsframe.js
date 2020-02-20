@@ -2302,6 +2302,14 @@ var wsframe = (function (global) {
         app.hrefs = gg("[data-href]").on("click", changehash, false);
     }
 
+    app.hrefListener = function hrefListener(listener) {
+        app.hrefs.off("click");
+        if (typeof listener !== "function") {
+            listener = changehash;
+        }
+        app.hrefs = gg("[data-href]").on("click", listener, false);
+    };
+
     function onopen() {
         app.retries = 0;
         app.hash = app.hashmatch.exec(global.location.hash)[1];
@@ -2325,6 +2333,7 @@ var wsframe = (function (global) {
                 }
             });
         }
+        app.hrefs.off("click");
         assignHrefs();
     }
 

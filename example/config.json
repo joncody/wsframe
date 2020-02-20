@@ -9,7 +9,7 @@
         "name": "mydatabase"
     },
     "routes": {
-        "/": {
+        "/([A-Za-z]+)?": {
             "admin": {
                 "template": "index",
                 "controllers": "admin"
@@ -19,6 +19,8 @@
                 "template": "index",
                 "controllers": "index"
             },
+            "key": "$1",
+            "table": "$1",
             "template": "auth",
             "controllers": "auth"
         }

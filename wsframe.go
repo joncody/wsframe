@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,7 +37,8 @@ type App struct {
 		Name     string `json:"name"`
 	} `json:"database"`
 	Driver *sql.DB
-	Routes map[string]struct {
+	Routes []struct {
+		Route string `json:"route"`
 		Admin struct {
 			Table       string `json:"table"`
 			Key         string `json:"key"`
@@ -264,9 +266,10 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var table, key, template, ctrls string
 
 	path := string(msg.Payload)
-	for route, details := range wfa.Routes {
-		pattern := regexp.MustCompile(route)
+	for _, details := range wfa.Routes {
+		pattern := regexp.MustCompile(details.Route)
 		if pattern.MatchString(path) == false {
+			log.Println(false, details.Route)
 			continue
 		}
 		if c.Cookie["privilege"] == "admin" && (details.Admin.Template != "" || details.Admin.Controllers != "") {
@@ -285,8 +288,26 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 			template = details.Template
 			ctrls = details.Controllers
 		}
-		if key != "" {
-			if table != "" {
+		if table != "" {
+			if strings.HasPrefix(table, "$") {
+				subs := pattern.FindStringSubmatch(path)
+				tablenum, err := strconv.Atoi(string(table[1]))
+				if err != nil {
+					log.Println(err)
+				} else if len(subs) >= tablenum {
+					table = subs[tablenum]
+				}
+			}
+			if strings.HasPrefix(key, "$") {
+				subs := pattern.FindStringSubmatch(path)
+				keynum, err := strconv.Atoi(string(key[1]))
+				if err != nil {
+					log.Println(err)
+				} else if len(subs) >= keynum {
+					key = subs[keynum]
+				}
+			}
+			if key != "" {
 				data = wfa.GetRow(table, key)
 			} else {
 				data = wfa.GetRows(table)
@@ -331,7 +352,7 @@ func (wfa *App) PrepareTables() {
 
 	tables := []string{"auth"}
 	for _, details := range wfa.Routes {
-		if details.Table == "" {
+		if details.Table == "" || strings.HasPrefix(details.Table, "$") {
 			continue
 		}
 		tables = append(tables, details.Table)
@@ -379,7 +400,8 @@ func NewApp(cj string) *App {
 			Name:     "dbname",
 		},
 		Driver: nil,
-		Routes: map[string]struct {
+		Routes: []struct {
+			Route string `json:"route"`
 			Admin struct {
 				Table       string `json:"table"`
 				Key         string `json:"key"`
