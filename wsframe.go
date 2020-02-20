@@ -269,7 +269,6 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	for _, details := range wfa.Routes {
 		pattern := regexp.MustCompile(details.Route)
 		if pattern.MatchString(path) == false {
-			log.Println(false, details.Route)
 			continue
 		}
 		if c.Cookie["privilege"] == "admin" && (details.Admin.Template != "" || details.Admin.Controllers != "") {
