@@ -8,8 +8,9 @@
         "password": "mypassword",
         "name": "mydatabase"
     },
-    "routes": {
-        "/([A-Za-z]+)?": {
+    "routes": [
+        {
+            "route": "/([A-Za-z]+)?",
             "admin": {
                 "template": "index",
                 "controllers": "admin"
@@ -24,5 +25,5 @@
             "template": "auth",
             "controllers": "auth"
         }
-    }
+    ]
 }
