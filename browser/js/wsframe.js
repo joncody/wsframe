@@ -73,6 +73,8 @@ var wsframe = (function (global) {
         gg.removeKeyboardListeners();
         gg.removeMouseListeners();
         app.base.html(msg.template);
+        app.hrefs.off("click");
+        assignHrefs();
         if (msg.controllers) {
             msg.controllers.forEach(function (c) {
                 if (app.controllers.hasOwnProperty(c)) {
@@ -80,8 +82,6 @@ var wsframe = (function (global) {
                 }
             });
         }
-        app.hrefs.off("click");
-        assignHrefs();
     }
 
     (function init() {
