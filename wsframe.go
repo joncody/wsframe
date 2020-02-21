@@ -223,18 +223,23 @@ func (wfa *App) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (wfa *App) GetRow(table, key string) string {
+func (wfa *App) GetRow(table, key string) map[string]interface{} {
 	value := make([]byte, 0)
+	ifacevalue := make(map[string]interface{})
 	row := wfa.Driver.QueryRow(fmt.Sprintf(`SELECT value FROM %s WHERE key = $1`, table), key)
 	if err := row.Scan(&value); err != nil {
 		log.Println(err)
-		return ""
+		return ifacevalue
 	}
-	return string(value)
+	if err := json.Unmarshal(value, &ifacevalue); err != nil {
+		log.Println(err)
+		return ifacevalue
+	}
+	return ifacevalue
 }
 
-func (wfa *App) GetRows(table string) []string {
-	values := make([]string, 0)
+func (wfa *App) GetRows(table string) []map[string]interface{} {
+	ifacevalues := make([]map[string]interface{}, 0)
 	rows, err := wfa.Driver.Query(fmt.Sprintf(`SELECT value FROM %s`, table))
 	if err != nil {
 		return nil
@@ -242,13 +247,18 @@ func (wfa *App) GetRows(table string) []string {
 	defer rows.Close()
 	for rows.Next() {
 		value := make([]byte, 0)
+		ifacevalue := make(map[string]interface{})
 		if err := rows.Scan(&value); err != nil {
 			log.Println(err)
-			return values
+			return ifacevalues
 		}
-		values = append(values, string(value))
+		if err := json.Unmarshal(value, &ifacevalue); err != nil {
+			log.Println(err)
+			return ifacevalues
+		}
+		ifacevalues = append(ifacevalues, ifacevalue)
 	}
-	return values
+	return ifacevalues
 }
 
 func (wfa *App) InsertRow(table, key, value string) error {
