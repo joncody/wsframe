@@ -148,7 +148,7 @@ func (wfa *App) SetCookie(w http.ResponseWriter, r *http.Request, value map[stri
 	return
 }
 
-func (wfa *App) Register(w http.ResponseWriter, r *http.Request) {
+func (wfa *App) register(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	alias := r.FormValue("alias")
@@ -190,7 +190,7 @@ func (wfa *App) Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (wfa *App) Login(w http.ResponseWriter, r *http.Request) {
+func (wfa *App) login(w http.ResponseWriter, r *http.Request) {
 	alias := r.FormValue("alias")
 	passhash := r.FormValue("passhash")
 	value := make([]byte, 0)
@@ -218,7 +218,7 @@ func (wfa *App) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (wfa *App) Logout(w http.ResponseWriter, r *http.Request) {
+func (wfa *App) logout(w http.ResponseWriter, r *http.Request) {
 	wfa.SetCookie(w, r, nil, true)
 	w.WriteHeader(http.StatusOK)
 }
@@ -269,7 +269,7 @@ func (wfa *App) InsertRow(table, key, value string) error {
 	return nil
 }
 
-func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
+func (wfa *App) processRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var tpl bytes.Buffer
 	var data interface{}
 	var controllers []string
@@ -347,12 +347,12 @@ func (wfa *App) ProcessRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	}
 }
 
-func (wfa *App) BaseHandler(w http.ResponseWriter, r *http.Request) {
+func (wfa *App) baseHandler(w http.ResponseWriter, r *http.Request) {
 	cook := wfa.ReadCookie(r)
 	wfa.Templates.ExecuteTemplate(w, "base", cook)
 }
 
-func (wfa *App) PrepareTables() {
+func (wfa *App) prepareTables() {
 	const query = `CREATE TABLE IF NOT EXISTS %s (
 				       id bigserial PRIMARY KEY,
 					   key text UNIQUE NOT NULL,
@@ -380,7 +380,7 @@ func (wfa *App) Start() {
 	wfa.Driver, err = sql.Open("postgres", fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", wfa.Database.User, wfa.Database.Password, wfa.Database.Name))
 	if err == nil && wfa.Driver != nil {
 		defer wfa.Driver.Close()
-		wfa.PrepareTables()
+		wfa.prepareTables()
 	}
 	if wfa.SSLPort != "0" {
 		go func() {
@@ -438,12 +438,12 @@ func NewApp(cj string) *App {
 	if err = json.Unmarshal(cjb, &app); err != nil {
 		log.Fatal(err)
 	}
-	app.Router.HandleFunc("/login", app.Login).Methods("POST")
-	app.Router.HandleFunc("/register", app.Register).Methods("POST")
-	app.Router.HandleFunc("/logout", app.Logout).Methods("POST")
+	app.Router.HandleFunc("/login", app.login).Methods("POST")
+	app.Router.HandleFunc("/register", app.register).Methods("POST")
+	app.Router.HandleFunc("/logout", app.logout).Methods("POST")
 	app.Router.HandleFunc("/ws", wsrooms.SocketHandler(app.ReadCookie)).Methods("GET")
 	app.Router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
-	app.Router.PathPrefix("/").Handler(http.HandlerFunc(app.BaseHandler)).Methods("GET")
-	wsrooms.Emitter.On("request", app.ProcessRequest)
+	app.Router.PathPrefix("/").Handler(http.HandlerFunc(app.baseHandler)).Methods("GET")
+	wsrooms.Emitter.On("request", app.processRequest)
 	return app
 }
