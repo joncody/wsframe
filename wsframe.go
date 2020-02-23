@@ -57,6 +57,10 @@ type App struct {
 		Template    string `json:"template"`
 		Controllers string `json:"controllers"`
 	} `json:"routes"`
+	Added []struct {
+		Route   string
+		Handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)
+	}
 	Router *mux.Router
 }
 
@@ -269,13 +273,56 @@ func (wfa *App) InsertRow(table, key, value string) error {
 	return nil
 }
 
-func (wfa *App) processRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
+func (wfa *App) Render(c *wsrooms.Conn, msg *wsrooms.Message, template string, controllers []string, data interface{}) {
 	var tpl bytes.Buffer
+
+	if err := wfa.Templates.ExecuteTemplate(&tpl, template, data); err != nil {
+		log.Println(err)
+	}
+	resp := struct {
+		Template    string   `json:"template"`
+		Controllers []string `json:"controllers"`
+	}{
+		Template:    tpl.String(),
+		Controllers: controllers,
+	}
+	payload, err := json.Marshal(&resp)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	msg.EventLength = len("response")
+	msg.Event = "response"
+	msg.PayloadLength = len(payload)
+	msg.Payload = payload
+	c.Send <- msg.Bytes()
+}
+
+func (wfa *App) AddRoute(path string, handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)) {
+	route := struct {
+		Route   string
+		Handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)
+	}{
+		Route:   path,
+		Handler: handler,
+	}
+	wfa.Added = append(wfa.Added, route)
+}
+
+func (wfa *App) processRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var data interface{}
 	var controllers []string
 	var table, key, template, ctrls string
 
 	path := string(msg.Payload)
+	for _, added := range wfa.Added {
+		pattern := regexp.MustCompile(added.Route)
+		if pattern.MatchString(path) == true {
+			subs := pattern.FindStringSubmatch(path)
+			added.Handler(c, msg, subs)
+			return
+		}
+	}
 	for _, details := range wfa.Routes {
 		pattern := regexp.MustCompile(details.Route)
 		if pattern.MatchString(path) == false {
@@ -322,27 +369,8 @@ func (wfa *App) processRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 				data = wfa.GetRows(table)
 			}
 		}
-		if err := wfa.Templates.ExecuteTemplate(&tpl, template, data); err != nil {
-			log.Println(err)
-		}
 		controllers = strings.Split(ctrls, ",")
-		resp := struct {
-			Template    string   `json:"template"`
-			Controllers []string `json:"controllers"`
-		}{
-			Template:    tpl.String(),
-			Controllers: controllers,
-		}
-		payload, err := json.Marshal(&resp)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		msg.EventLength = len("response")
-		msg.Event = "response"
-		msg.PayloadLength = len(payload)
-		msg.Payload = payload
-		c.Send <- msg.Bytes()
+		wfa.Render(c, msg, template, controllers, data)
 		break
 	}
 }
@@ -428,6 +456,10 @@ func NewApp(cj string) *App {
 			Key         string `json:"key"`
 			Template    string `json:"template"`
 			Controllers string `json:"controllers"`
+		}{},
+		Added: []struct {
+			Route   string
+			Handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)
 		}{},
 		Router: mux.NewRouter().StrictSlash(false),
 	}
