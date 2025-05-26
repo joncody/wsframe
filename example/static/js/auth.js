@@ -1,13 +1,18 @@
+"use strict";
+
+import gg from "./gg.js";
+import wsframe from "./wsframe.js";
+
 wsframe.controllers.auth = function (global) {
     "use strict";
 
     function enter() {
-        var type = gg(".form-toggler").html() === "Login" ? "register" : "login";
-        var alias = gg(".form-input[name='alias']").attr("value");
-        var passhash = sjcl.codec.hex.fromBits(sjcl.hash.sha256.hash(gg(".form-input[name='password']").attr("value")));
-        var passhash_repeat = sjcl.codec.hex.fromBits(sjcl.hash.sha256.hash(gg(".form-input[name='password-repeat']").attr("value")));
-        var xhr = new XMLHttpRequest();
-        var fd = new FormData();
+        const type = gg(".form-toggler").html() === "Login" ? "register" : "login";
+        const alias = gg(".form-input[name='alias']").attr("value");
+        const passhash = sjcl.codec.hex.fromBits(sjcl.hash.sha256.hash(gg(".form-input[name='password']").attr("value")));
+        const passhash_repeat = sjcl.codec.hex.fromBits(sjcl.hash.sha256.hash(gg(".form-input[name='password-repeat']").attr("value")));
+        const xhr = new XMLHttpRequest();
+        const fd = new FormData();
 
         gg(".form-input[name='password']").attr("value", "");
         gg(".form-input[name='password-repeat']").attr("value", "");
@@ -29,7 +34,7 @@ wsframe.controllers.auth = function (global) {
     gg("button[name='enter']").on("click", enter, false);
 
     function leave() {
-        var xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest();
 
         xhr.onload = function () {
             if (xhr.readyState === 4 && xhr.status === 200) {
