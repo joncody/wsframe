@@ -1,8 +1,3 @@
-wsframe
-=======
-
-A basic, golang, SPA, web, framework.
-
 # wsframe
 
 **wsframe** is a Go-based websocket framework designed for building real-time web applications backed by a PostgreSQL database. It integrates HTTP routing, secure user authentication, JSON data storage, and dynamic templating with websocket communication.
