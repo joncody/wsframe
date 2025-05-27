@@ -1,9 +1,6 @@
 package wsframe
 
 import (
-	"crypto/sha1"
-	"crypto/sha256"
-	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -59,7 +56,7 @@ func NewApp(cj string) *App {
 		BlockKey:     "a-lotvery-secret",
 		Port:         "8080",
 		SSLPort:      "0",
-		Database: &DBConfig{
+		Database: DBConfig{
 			User:     "dbuser",
 			Password: "dbpass",
 			Name:     "dbname",

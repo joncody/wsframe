@@ -1,7 +1,6 @@
 package wsframe
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"

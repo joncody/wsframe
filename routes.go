@@ -27,12 +27,17 @@ type Route struct {
 	Route      string      `json:"route"`
 	Admin      RouteConfig `json:"admin"`
 	Authorized RouteConfig `json:"authorized"`
-	General    RouteConfig `json:"general"`
+	RouteConfig
 }
 
 type AddedRoute struct {
 	Route   string
 	Handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)
+}
+
+type RoutePayload struct {
+    Template    string   `json:"template"`
+    Controllers []string `json:"controllers"`
 }
 
 func ToKey(s string) string {
@@ -81,7 +86,7 @@ var TemplateFuncs = template.FuncMap{
 }
 
 func (wfa *App) AddRoute(path string, handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)) {
-	route := &AddedRoute{
+	route := AddedRoute{
 		Route:   path,
 		Handler: handler,
 	}
@@ -99,10 +104,7 @@ func (wfa *App) Render(c *wsrooms.Conn, msg *wsrooms.Message, template string, c
 	if err := wfa.Templates.ExecuteTemplate(&tpl, template, data); err != nil {
 		log.Println(err)
 	}
-	resp := struct {
-		Template    string   `json:"template"`
-		Controllers []string `json:"controllers"`
-	}{
+	resp := RoutePayload{
 		Template:    tpl.String(),
 		Controllers: controllers,
 	}
