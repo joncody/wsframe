@@ -31,7 +31,7 @@ go get github.com/lib/pq
 Clone this repo and build your application:
 
 ```bash
-git clone https://github.com/yourusername/wsframe.git
+git clone https://github.com/joncody/wsframe.git
 cd wsframe
 go build -o wsframe
 ```
