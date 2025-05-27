@@ -23,13 +23,10 @@ type Auth struct {
 }
 
 func (wfa *App) ReadCookie(r *http.Request) map[string]string {
-	value := make(map[string]string)
+	var value map[string]string
 	cookie, err := r.Cookie(wfa.Name)
-	if err != nil {
-		return value
-	}
-	if err := wfa.SecureCookie.Decode(wfa.Name, cookie.Value, &value); err != nil {
-		return value
+	if err != nil || wfa.SecureCookie.Decode(wfa.Name, cookie.Value, &value) != nil {
+		return map[string]string{}
 	}
 	return value
 }
@@ -46,7 +43,7 @@ func (wfa *App) SetCookie(w http.ResponseWriter, r *http.Request, value map[stri
 		Path:     "/",
 		HttpOnly: true,
 	}
-	if logout == true {
+	if logout {
 		cookie.Expires = time.Now().Add(-24 * time.Hour)
 		cookie.MaxAge = -1
 	} else {
@@ -54,77 +51,73 @@ func (wfa *App) SetCookie(w http.ResponseWriter, r *http.Request, value map[stri
 		cookie.MaxAge = 60 * 60 * 24
 	}
 	http.SetCookie(w, cookie)
-	return
 }
 
 func (wfa *App) register(w http.ResponseWriter, r *http.Request) {
-	var err error
-
+    var existing []byte
 	alias := r.FormValue("alias")
 	passhash := r.FormValue("passhash")
-	value := make([]byte, 0)
-	row := wfa.Driver.QueryRow(`SELECT value FROM auth WHERE key = $1`, alias)
-	if err = row.Scan(&value); err != sql.ErrNoRows {
-		log.Println(err)
+	if err := wfa.Driver.QueryRow(`SELECT value FROM auth WHERE key = $1`, alias).Scan(&existing); err != sql.ErrNoRows {
+		log.Println("Alias already exists or DB error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	randombytes := make([]byte, 16)
-	if _, err = rand.Read(randombytes); err != nil {
-		log.Println(err)
+	random := make([]byte, 16)
+	if _, err = rand.Read(random); err != nil {
+		log.Println("Salt generation failed:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	salt := fmt.Sprintf("%x", sha1.Sum(randombytes))
+	salt := fmt.Sprintf("%x", sha1.Sum(random))
 	auth := Auth{
 		Passhash:  passhash,
 		Salt:      salt,
-		Privilege: "user",
 		Hash:      fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s%s%s", alias, passhash, salt)))),
+		Privilege: "user",
 	}
-	if value, err = json.Marshal(&auth); err != nil {
-		log.Println(err)
+    data, err := json.Marshal(&auth)
+	if err != nil {
+		log.Println("Marshal error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if _, err = wfa.Driver.Exec(fmt.Sprintf(`INSERT INTO auth (key, value) VALUES ($1, $2)`), alias, value); err != nil {
-		log.Println(err)
+	if _, err = wfa.Driver.Exec(fmt.Sprintf(`INSERT INTO auth (key, value) VALUES ($1, $2)`), alias, data); err != nil {
+		log.Println("Insert error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		wfa.SetCookie(w, r, map[string]string{
-			"alias":     alias,
-			"privilege": auth.Privilege,
-		}, false)
-		w.WriteHeader(http.StatusOK)
+        return
 	}
+    wfa.SetCookie(w, r, map[string]string{
+        "alias":     alias,
+        "privilege": auth.Privilege,
+    }, false)
+    w.WriteHeader(http.StatusOK)
 }
 
 func (wfa *App) login(w http.ResponseWriter, r *http.Request) {
+    var data []byte
+	var auth Auth
 	alias := r.FormValue("alias")
 	passhash := r.FormValue("passhash")
-	value := make([]byte, 0)
-	row := wfa.Driver.QueryRow(`SELECT value FROM auth WHERE key = $1`, alias)
-	if err := row.Scan(&value); err != nil {
-		log.Println(err)
+	if err := wfa.Driver.QueryRow(`SELECT value FROM auth WHERE key = $1`, alias).Scan(&data); err != nil {
+		log.Println("User not found or DB error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	auth := Auth{}
-	if err := json.Unmarshal(value, &auth); err != nil {
-		log.Println(err)
+	if err := json.Unmarshal(data, &auth); err != nil {
+		log.Println("Unmarshal error:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%s%s%s", alias, passhash, auth.Salt))))
-	if hash == auth.Hash {
-		wfa.SetCookie(w, r, map[string]string{
-			"alias":     alias,
-			"privilege": auth.Privilege,
-		}, false)
-		w.WriteHeader(http.StatusOK)
-	} else {
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(alias + passhash + auth.Salt)))
+	if hash != auth.Hash {
 		w.WriteHeader(http.StatusInternalServerError)
-	}
+        return
+    }
+    wfa.SetCookie(w, r, map[string]string{
+        "alias":     alias,
+        "privilege": auth.Privilege,
+    }, false)
+    w.WriteHeader(http.StatusOK)
 }
 
 func (wfa *App) logout(w http.ResponseWriter, r *http.Request) {

@@ -85,24 +85,31 @@ var TemplateFuncs = template.FuncMap{
 	"fromkey": FromKey,
 }
 
+func (app *App) setupRoutes() {
+	app.Router.HandleFunc("/login", app.login).Methods("POST")
+	app.Router.HandleFunc("/register", app.register).Methods("POST")
+	app.Router.HandleFunc("/logout", app.logout).Methods("POST")
+	app.Router.HandleFunc("/ws", wsrooms.SocketHandler(app.ReadCookie)).Methods("GET")
+	app.Router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
+	app.Router.PathPrefix("/").Handler(http.HandlerFunc(app.baseHandler)).Methods("GET")
+}
+
 func (wfa *App) AddRoute(path string, handler func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string)) {
-	route := AddedRoute{
-		Route:   path,
-		Handler: handler,
-	}
-	wfa.Added = append(wfa.Added, route)
+	wfa.Added = append(wfa.Added, AddedRoute{Route: path, Handler: handler})
 }
 
 func (wfa *App) baseHandler(w http.ResponseWriter, r *http.Request) {
 	cook := wfa.ReadCookie(r)
-	wfa.Templates.ExecuteTemplate(w, "base", cook)
+	if err := wfa.Templates.ExecuteTemplate(w, "base", cook); err != nil {
+		log.Println("Base handler template error:", err)
+	}
 }
 
 func (wfa *App) Render(c *wsrooms.Conn, msg *wsrooms.Message, template string, controllers []string, data interface{}) {
 	var tpl bytes.Buffer
 
 	if err := wfa.Templates.ExecuteTemplate(&tpl, template, data); err != nil {
-		log.Println(err)
+        log.Println("Template error:", err)
 	}
 	resp := RoutePayload{
 		Template:    tpl.String(),
@@ -110,78 +117,66 @@ func (wfa *App) Render(c *wsrooms.Conn, msg *wsrooms.Message, template string, c
 	}
 	payload, err := json.Marshal(&resp)
 	if err != nil {
-		log.Println(err)
+        log.Println("Marshal error:", err)
 		return
 	}
-	msg.EventLength = len("response")
 	msg.Event = "response"
-	msg.PayloadLength = len(payload)
+	msg.EventLength = len(msg.Event)
 	msg.Payload = payload
+	msg.PayloadLength = len(payload)
 	c.Send <- msg.Bytes()
+}
+
+func resolveDynamic(field string, subs []string) string {
+	if !strings.HasPrefix(field, "$") {
+		return field
+	}
+	if n, err := strconv.Atoi(field[1:]); err == nil && n < len(subs) {
+		return subs[n]
+	}
+	return ""
 }
 
 func (wfa *App) processRequest(c *wsrooms.Conn, msg *wsrooms.Message) {
 	var data interface{}
-	var controllers []string
-	var table, key, template, ctrls string
-
 	path := string(msg.Payload)
 	for _, added := range wfa.Added {
-		pattern := regexp.MustCompile(added.Route)
-		if pattern.MatchString(path) == true {
+		if pattern := regexp.MustCompile(added.Route); pattern.MatchString(path) {
 			subs := pattern.FindStringSubmatch(path)
 			added.Handler(c, msg, subs)
 			return
 		}
 	}
-	for _, details := range wfa.Routes {
-		pattern := regexp.MustCompile(details.Route)
-		if pattern.MatchString(path) == false {
+	for _, route := range wfa.Routes {
+		pattern := regexp.MustCompile(route.Route)
+		subs := pattern.FindStringSubmatch(path)
+		if subs == nil {
 			continue
 		}
-		if c.Cookie["privilege"] == "admin" && (details.Admin.Template != "" || details.Admin.Controllers != "") {
-			table = details.Admin.Table
-			key = details.Admin.Key
-			template = details.Admin.Template
-			ctrls = details.Admin.Controllers
-		} else if c.Cookie["privilege"] != "" && details.Authorized.Privilege != "" && strings.Contains(details.Authorized.Privilege, c.Cookie["privilege"]) {
-			table = details.Authorized.Table
-			key = details.Authorized.Key
-			template = details.Authorized.Template
-			ctrls = details.Authorized.Controllers
-		} else {
-			table = details.Table
-			key = details.Key
-			template = details.Template
-			ctrls = details.Controllers
+
+		cfg := route.RouteConfig
+		priv := c.Cookie["privilege"]
+
+		switch {
+		case priv == "admin" && (route.Admin.Template != "" || route.Admin.Controllers != ""):
+			cfg = route.Admin
+		case priv != "" && route.Authorized.Privilege != "" && strings.Contains(route.Authorized.Privilege, priv):
+			cfg = route.Authorized
 		}
+
+		table := resolveDynamic(cfg.Table, subs)
+		key := resolveDynamic(cfg.Key, subs)
+
 		if table != "" {
-			if strings.HasPrefix(table, "$") {
-				subs := pattern.FindStringSubmatch(path)
-				tablenum, err := strconv.Atoi(string(table[1]))
-				if err != nil {
-					log.Println(err)
-				} else if len(subs) >= tablenum {
-					table = subs[tablenum]
-				}
-			}
-			if strings.HasPrefix(key, "$") {
-				subs := pattern.FindStringSubmatch(path)
-				keynum, err := strconv.Atoi(string(key[1]))
-				if err != nil {
-					log.Println(err)
-				} else if len(subs) >= keynum {
-					key = subs[keynum]
-				}
-			}
 			if key != "" {
 				data = wfa.GetRow(table, key)
 			} else {
 				data = wfa.GetRows(table)
 			}
 		}
-		controllers = strings.Split(ctrls, ",")
-		wfa.Render(c, msg, template, controllers, data)
-		break
+
+		controllers := strings.Split(cfg.Controllers, ",")
+		wfa.Render(c, msg, cfg.Template, controllers, data)
+		return
 	}
 }

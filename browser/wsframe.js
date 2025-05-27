@@ -1,5 +1,6 @@
 "use strict";
 
+import gg from "./gg.js";
 import wsrooms from "./wsrooms.js";
 
 const global = globalThis || window || this;
@@ -55,7 +56,7 @@ function onopen() {
 }
 
 function onresponse(payload) {
-    const msg = JSON.parse(gg.toStringFromCodes(payload));
+    const msg = JSON.parse(gg.utils.toStringFromCodes(payload));
 
     gg.removeKeyboardListeners();
     gg.removeMouseListeners();
@@ -71,20 +72,22 @@ function onresponse(payload) {
     }
 }
 
-app.socket = wsrooms((global.location.protocol === "https:" ? "wss:" : "ws:") + "//" + global.location.host + "/ws");
-app.socket.on("open", onopen);
-app.socket.on("close", function () {
-    if (app.retries < 10) {
-        global.setTimeout(init, 3000);
-    }
-    app.retries += 1;
-});
-app.socket.on("error", function (err) {
-    console.log(err);
-    if (app.retries < 10) {
-        global.setTimeout(init, 3000);
-    }
-});
-app.socket.on("response", onresponse);
+(function init() {
+    app.socket = wsrooms((global.location.protocol === "https:" ? "wss:" : "ws:") + "//" + global.location.host + "/ws");
+    app.socket.on("open", onopen);
+    app.socket.on("close", function () {
+        if (app.retries < 10) {
+            global.setTimeout(init, 3000);
+        }
+        app.retries += 1;
+    });
+    app.socket.on("error", function (err) {
+        console.log(err);
+        if (app.retries < 10) {
+            global.setTimeout(init, 3000);
+        }
+    });
+    app.socket.on("response", onresponse);
+}());
 
-export default Object.freeze(app);
+export default app;
