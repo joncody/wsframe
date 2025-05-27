@@ -36,8 +36,8 @@ type AddedRoute struct {
 }
 
 type RoutePayload struct {
-    Template    string   `json:"template"`
-    Controllers []string `json:"controllers"`
+	Template    string   `json:"template"`
+	Controllers []string `json:"controllers"`
 }
 
 func ToKey(s string) string {

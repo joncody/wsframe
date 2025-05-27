@@ -11,8 +11,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
-	_ "github.com/lib/pq"
 	"github.com/joncody/wsrooms"
+	_ "github.com/lib/pq"
 )
 
 type App struct {
@@ -21,13 +21,13 @@ type App struct {
 	BlockKey     string `json:"blockkey"`
 	SecureCookie *securecookie.SecureCookie
 	Templates    *template.Template
-	Port         string `json:"port"`
-	SSLPort      string `json:"sslport"`
+	Port         string   `json:"port"`
+	SSLPort      string   `json:"sslport"`
 	Database     DBConfig `json:"database"`
-	Driver *sql.DB
-	Routes []Route `json:"routes"`
-	Added []AddedRoute
-	Router *mux.Router
+	Driver       *sql.DB
+	Routes       []Route `json:"routes"`
+	Added        []AddedRoute
+	Router       *mux.Router
 }
 
 func (wfa *App) Start() {
@@ -63,7 +63,7 @@ func NewApp(cj string) *App {
 		},
 		Driver: nil,
 		Routes: []Route{},
-		Added: []AddedRoute{},
+		Added:  []AddedRoute{},
 		Router: mux.NewRouter().StrictSlash(false),
 	}
 	cjb, err := ioutil.ReadFile(cj)
