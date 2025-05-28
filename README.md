@@ -1,149 +1,207 @@
-# wsframe
+# 🧩 WSFrame
 
-**wsframe** is a Go-based websocket framework designed for building real-time web applications backed by a PostgreSQL database. It integrates HTTP routing, secure user authentication, JSON data storage, and dynamic templating with websocket communication.
-
----
-
-## Features
-
-- Websocket server handling real-time requests via [wsrooms](https://github.com/joncody/wsrooms)
-- User authentication with salted password hashing and secure cookies
-- Role-based route handling (`admin`, `authorized`, `public`)
-- Dynamic route matching with regex support and JSON data retrieval from PostgreSQL
-- Flexible templating system using Go's `html/template` with helper functions
-- REST endpoints for login, registration, and logout
-- Automatic table creation and JSON storage in PostgreSQL
-- Static file serving and customizable routes
+**WSFrame** is a lightweight Go framework for real-time, dynamic web applications using WebSockets, templates, and PostgreSQL. It is designed to work with [wsrooms](https://github.com/joncody/wsrooms) for bi-directional client-server communication.
 
 ---
 
-## Installation
+## 🚀 Features
 
-Make sure you have Go installed (version 1.18+ recommended) and PostgreSQL running.
+- 📡 WebSocket routing via regular expressions
+- 🔄 Dynamic HTML rendering via Go templates
+- 🔐 Built-in user registration and login with secure cookies
+- 🗂️ PostgreSQL persistence using JSON columns
+- ⚡ Hot-swappable route handling
+- 🧠 Template helpers for common operations (currency, math, HTML escaping, etc.)
 
-```bash
-go get github.com/gorilla/mux
-go get github.com/gorilla/securecookie
-go get github.com/joncody/wsrooms
-go get github.com/lib/pq
-````
+---
 
-Clone this repo and build your application:
+## 🧰 Components
 
-```bash
-git clone https://github.com/joncody/wsframe.git
-cd wsframe
-go build -o wsframe
+- **Routes**: Declarative or programmatic, privilege-aware
+- **Render Engine**: Go templates with built-in helpers
+- **WebSocket Server**: Integrated via `wsrooms`
+- **Database Access**: Auto-creates tables, supports dynamic access via keys
+- **Authentication**: Salted SHA-256 hashes with cookie-based sessions
+
+---
+
+## 📦 Directory Structure
+
+```
+wsframe/
+├── app.go           # Main App struct, startup logic
+├── auth.go          # Register/login/logout handlers
+├── db.go            # PostgreSQL logic (CRUD)
+├── render.go        # Template rendering and response
+├── routes.go        # Route matching and configuration
+├── templatefuncs.go # Custom template functions
 ```
 
 ---
 
-## Configuration
+## 🧱 Route Configuration
 
-The app expects a JSON config file specifying database credentials, routes, templates, and security keys. Example config (`config.json`):
+A `Route` object can specify:
+- A regex path match
+- Optional `admin` and `authorized` variants
+- Data table and key for dynamic loading
+- Template to render
+- Controllers to execute in frontend
+
+Example:
 
 ```json
 {
-  "name": "wsframe",
-  "hashkey": "very-secret",
-  "blockkey": "a-lotvery-secret",
-  "port": "8080",
-  "sslport": "0",
-  "database": {
-    "user": "dbuser",
-    "password": "dbpass",
-    "name": "dbname"
-  },
-  "routes": [
-    {
-      "route": "^/dashboard$",
-      "admin": {
-        "table": "admin_data",
-        "key": "dashboard",
-        "template": "admin_dashboard.tmpl",
-        "controllers": "adminCtrl"
-      },
-      "authorized": {
-        "privilege": "user,editor",
-        "table": "user_data",
-        "key": "dashboard",
-        "template": "user_dashboard.tmpl",
-        "controllers": "userCtrl"
-      },
-      "table": "public_data",
-      "key": "dashboard",
-      "template": "public_dashboard.tmpl",
-      "controllers": "publicCtrl"
-    }
-  ]
+  "route": "/articles/([a-z0-9-]+)",
+  "authorized": {
+    "privilege": "user",
+    "template": "article",
+    "controllers": "articleController",
+    "table": "articles",
+    "key": "$1"
+  }
 }
 ```
 
 ---
 
-## Usage
+## 🧪 Custom Handlers
 
-Initialize and start your app:
+You can register WebSocket route handlers programmatically:
 
 ```go
-package main
+app.AddRoute("^/test/(.*)$", func(c *wsrooms.Conn, msg *wsrooms.Message, matches []string) {
+    app.Render(c, msg, "test-view", []string{"test"}, nil)
+})
+```
 
-import (
-  "log"
-  "wsframe"
-)
+---
 
-func main() {
-  app := wsframe.NewApp("config.json")
-  app.Start()
+## 🛠 Template Helpers
+
+- `usd`, `add`, `subtract`, `multiply`, `divide`
+- `tokey`, `fromkey`
+- `sha1sum`, `css`, `unescaped`
+
+Use them in your templates:
+
+```gohtml
+<p>{{ usd .Price }}</p>
+```
+
+# 🧪 WSFrame Example App
+
+This is a minimal example application using [WSFrame](https://github.com/joncody/wsframe), a Go WebSocket framework for real-time routing and template rendering.
+
+---
+
+## 🔧 Features
+
+- Hash-based routing (e.g. `#/test/foo`)
+- Real-time template + controller updates
+- Dynamic path-based data loading
+- User registration & login with secure cookies
+
+---
+
+## 🚀 Quickstart
+
+### 1. Clone
+
+```bash
+git clone https://github.com/youruser/wsframe-example
+cd wsframe-example
+```
+
+### 2. Setup Database
+
+Create a PostgreSQL database matching the config:
+
+```sql
+CREATE DATABASE mydatabase;
+CREATE USER myuser WITH PASSWORD 'mypassword';
+GRANT ALL PRIVILEGES ON DATABASE mydatabase TO myuser;
+```
+
+### 3. Run
+
+```bash
+go run main.go
+```
+
+Open in your browser:
+
+```
+http://localhost:9001
+```
+
+---
+
+## 🗂️ Project Structure
+
+```
+.
+├── main.go              # Entry point with custom handler
+├── config.json          # App config
+├── static/
+│   ├── views/           # Go templates
+│   └── js/              # Frontend client
+└── wsframe/             # Framework (submodule or local copy)
+```
+
+---
+
+## 🔒 Auth Endpoints
+
+| Method | Path      | Description   |
+|--------|-----------|---------------|
+| POST   | `/register` | Register new user |
+| POST   | `/login`  | Log in with alias/passhash |
+| POST   | `/logout` | Logout and clear cookie |
+
+---
+
+## 🧪 Custom Route
+
+Inside `main.go`:
+
+```go
+app.AddRoute("^/test/(.*)$", testHandler)
+
+func testHandler(c *wsrooms.Conn, msg *wsrooms.Message, matches []string) {
+	log.Println(matches)
+	app.Render(c, msg, "index-added", []string{"index"}, nil)
 }
 ```
 
-* The server listens on the configured port (default 8080).
-* HTTP routes `/login`, `/register`, `/logout` handle user authentication.
-* Websocket endpoint `/ws` manages real-time client-server communication.
-* Static files are served from `/static/`.
-* Dynamic routes are configured in the JSON file with route regex, templates, and data sources.
+Visit `http://localhost:9001/#/test/hello` to see it in action.
 
 ---
 
-## Authentication
+## 🌐 Frontend: `static/js/app.js`
 
-* Users register by sending a POST to `/register` with `alias` and `passhash` (SHA-1 hashed password).
-* Passwords are salted and hashed with SHA-256 before storage.
-* Login is done via POST `/login` with the same fields.
-* Secure cookies store session info with `alias` and `privilege`.
-* Privileges control route access (`admin`, `user`, etc.).
-
----
-
-## Database
-
-* Uses PostgreSQL with JSON storage.
-* Automatically creates required tables (`auth` plus any specified in routes).
-* Data is stored as JSON in a `value` column keyed by a unique `key`.
-* Supports retrieving single rows or all rows from tables.
+- Listens for hash changes
+- Sends `request` to WebSocket
+- Receives `response` with:
+  - HTML template to inject
+  - JS controllers to run
 
 ---
 
-## Templates and Controllers
+## ✨ Example HTML Controller
 
-* Uses Go's `html/template` with helper functions for string and numeric operations.
-* Templates are stored in `./static/views/`.
-* Controllers are JavaScript modules loaded client-side to enhance views.
-* The server sends rendered templates with the list of controllers over websocket.
+```html
+<a data-href="/test/hello">Go to Hello</a>
+```
 
----
+Triggers:
 
-## Extending the App
-
-* Add new routes dynamically via `AddRoute` with custom handlers.
-* Extend user privileges and authentication logic as needed.
-* Customize templates and controllers to fit your frontend needs.
-* Use websocket message handlers to build real-time interactive apps.
+1. `location.hash = "/test/hello"`
+2. WebSocket sends request
+3. Server responds with rendered `index-added` view
 
 ---
 
-## License
+## 📜 License
 
 See the [LICENSE](./LICENSE) file for details.
