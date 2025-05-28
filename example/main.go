@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	wsframe "github.com/joncody/wsframe"
+	"github.com/joncody/wsframe"
 	"github.com/joncody/wsrooms"
 )
 
