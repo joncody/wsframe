@@ -109,8 +109,8 @@ This is a minimal example application using [WSFrame](https://github.com/joncody
 ### 1. Clone
 
 ```bash
-git clone https://github.com/youruser/wsframe-example
-cd wsframe-example
+git clone https://github.com/joncody/wsframe.git
+cd wsframe/example
 ```
 
 ### 2. Setup Database
