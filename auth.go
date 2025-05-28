@@ -63,7 +63,7 @@ func (wfa *App) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	random := make([]byte, 16)
-	if _, err = rand.Read(random); err != nil {
+    if _, err := rand.Read(random); err != nil {
 		log.Println("Salt generation failed:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
