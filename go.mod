@@ -1,11 +1,10 @@
-module wsframe
+module github.com/joncody/wsframe
 
 go 1.23.0
 
 require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/securecookie v1.1.2
-	github.com/joncody/wsframe v0.0.0-20250526052349-6edb1d9d3f80
 	github.com/joncody/wsrooms v0.0.0-20250524092317-32c13371a674
 	github.com/lib/pq v1.10.9
 )
