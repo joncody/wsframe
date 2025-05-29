@@ -1,7 +1,6 @@
 @import "reset.css";
 @import "fonts/roboto/roboto.css";
 @import "fonts/opensans/opensans.css";
-@import "fonts/font-awesome/css/all.css";
 
 [data-base] {
     height: 100%;
